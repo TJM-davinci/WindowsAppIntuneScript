@@ -9,7 +9,7 @@ try {
 
     Write-Log "Starting"
 
-    # Find Windows App AUMID
+    # App AUMID
     $App = Get-StartApps | Where-Object {
         $_.Name -match "Windows App" -or $_.Name -match "Windows 365"
     } | Select-Object -First 1
@@ -23,22 +23,30 @@ try {
 
     Write-Log "Found AUMID: $AUMID"
 
-    if (-not $AUMID) {
-        Write-Log "No AUMID"
-        exit 0
-    }
-
-    # User desktop
+    # Desktop path
     $DesktopPath = [Environment]::GetFolderPath('Desktop')
 
-    Write-Log "Desktop path: $DesktopPath"
-
     if (-not (Test-Path $DesktopPath)) {
-        Write-Log "Desktop path missing"
+        Write-Log "Desktop missing"
         exit 0
     }
 
     $ShortcutPath = Join-Path $DesktopPath "Windows App.lnk"
+
+    # Icon download location
+    $IconFolder = "$env:LOCALAPPDATA\Company\Icons"
+    $IconPath = Join-Path $IconFolder "WinApp.ico"
+
+    if (!(Test-Path $IconFolder)) {
+        New-Item -Path $IconFolder -ItemType Directory -Force | Out-Null
+    }
+
+    # Download icon
+    $IconUrl = "https://raw.githubusercontent.com/TJM-davinci/WindowsAppIntuneScript/main/WinApp.ico"
+
+    Invoke-WebRequest -Uri $IconUrl -OutFile $IconPath -UseBasicParsing
+
+    Write-Log "Icon downloaded to $IconPath"
 
     # Create shortcut
     $WshShell = New-Object -ComObject WScript.Shell
@@ -48,10 +56,9 @@ try {
     $Shortcut.Arguments = "shell:AppsFolder\$AUMID"
     $Shortcut.Description = "Windows App"
 
-    $RdpExe = "$env:SystemRoot\System32\mstsc.exe"
-
-    if (Test-Path $RdpExe) {
-        $Shortcut.IconLocation = "$RdpExe,0"
+    # Use custom icon
+    if (Test-Path $IconPath) {
+        $Shortcut.IconLocation = $IconPath
     }
 
     $Shortcut.Save()
